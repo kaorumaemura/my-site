@@ -2,141 +2,68 @@
 
 ## ラーメンタイマー
 
-ATtiny85 で作る、カップラーメン用の3分タイマーです。
-ボタンを押すとカウントが始まり、3分たつとブザーとLEDで知らせます。
+ATtiny85 で作る、3分・4分・5分を切り替えられるラーメンタイマーです。
+プログラムはアセンブラで書いています。時間になると**チャルメラ**が鳴ります。
 
 ### 進捗
 
 - 基板とケースを発注しました。
 
-### 動き
+### 使い方
 
-1. ボタンを押す → 「ピッ」と鳴ってスタート
-2. カウント中は LED が1秒ごとに点滅
-3. 途中でボタンを押すと「ピピッ」と鳴ってキャンセル
-4. 3分たつと**チャルメラ**（ソラシーラソ　ソラシラソラー）が鳴り続け、音に合わせて LED も光る
-5. ボタンを押すと止まる
+**ふだん**
 
-### 部品
+- **1回押す**：スタート / ストップ
+- **2回押す（ダブルクリック）**：時間の設定へ
+- 時間になるとチャルメラ（そらしーらそ　そらしらそら〜）が3回鳴ります
+- 鳴っている途中で押すと止まります
 
-| 部品 | 数量 |
+**設定**
+
+- 押すたびに 3分 → 4分 → 5分 → 3分… と切り替わります
+- 3秒さわらないと確定し「ピッピッピッ」と鳴ります
+- 設定は EEPROM に保存されるので、電源を切っても覚えています
+
+### LED の光り方
+
+| 状態 | 光り方 |
 |---|---|
-| ATtiny85 | 1 |
-| 圧電ブザー（パッシブ） | 1 |
-| LED | 1 |
-| 抵抗 330Ω（LED用） | 1 |
-| タクトスイッチ | 1 |
-| CR2032 電池＋ホルダー（3V） | 1 |
+| 待機中 | 消灯（操作した後3秒だけ、設定時間のLEDが点灯） |
+| カウント中 | 最初の3秒は点灯、そのあとは1秒ごとに0.1秒だけ点灯 |
+| 設定中 | 全部のLEDが1秒ごとに点滅し、選んでいるLEDは点灯したまま |
 
-### 配線
+### 回路
+
+| ピン | 番号 | つなぐもの |
+|---|---|---|
+| PB0 | 5 | LED（3分）＋抵抗 |
+| PB1 | 6 | LED（4分）＋抵抗 |
+| PB2 | 7 | LED（5分）＋抵抗 |
+| PB3 | 2 | スイッチ（内部プルアップ、押すとGND） |
+| PB4 | 3 | 圧電ブザー |
 
 ```
-            ATtiny85
-          +----U----+
-   RESET -|1       8|- VCC (+3V)
-     PB3 -|2       7|- PB2 ---- スイッチ ---- GND
-     PB4 -|3       6|- PB1 ---- ブザー ------ GND
-     GND -|4       5|- PB0 ---- 330Ω -- LED - GND
-          +---------+
+               ATtiny85
+             +----U----+
+      RESET -|1       8|- VCC
+スイッチ- PB3 -|2       7|- PB2 -- 抵抗 -- LED(5分) -- GND
+ ブザー - PB4 -|3       6|- PB1 -- 抵抗 -- LED(4分) -- GND
+        GND -|4       5|- PB0 -- 抵抗 -- LED(3分) -- GND
+             +---------+
+スイッチ・ブザーのもう片方は GND
 ```
 
-スイッチは内部プルアップを使うので、抵抗はいりません。
+### 工夫したところ
+
+- 待機中はパワーダウンで眠り、ボタンを押すと起きるので電池が長持ち
+- 動作中も1msごとに起きて処理し、それ以外はスリープ
+- 使わない ADC・USI・アナログコンパレータは止め、Timer1 も音を出すときだけ動かす
+- スイッチは10msごとに読み、3回続けて同じならOK（チャタリング対策）
+- ブザーは Timer1 の割り込みでピンを反転させて鳴らす
 
 ### プログラム
 
-Arduino IDE に **ATTinyCore** を入れて書き込みます。
+- クロック：内蔵8MHz ÷ 8 = 1MHz（工場出荷時のヒューズのまま）
+- ソースファイル：[ramen_timer.asm](ramen_timer.asm ':ignore')
 
-- ボード：ATtiny25/45/85 (No bootloader)
-- Chip：ATtiny85
-- Clock：8 MHz (internal)　※最初に「ブートローダを書き込む」でクロックを設定
-
-```cpp
-// ATtiny85 ラーメンタイマー（3分）
-const uint8_t LED = 0;  // PB0
-const uint8_t BUZ = 1;  // PB1
-const uint8_t BTN = 2;  // PB2
-
-const unsigned long TIME_MS = 3UL * 60 * 1000;  // 3分
-
-void setup() {
-  pinMode(LED, OUTPUT);
-  pinMode(BUZ, OUTPUT);
-  pinMode(BTN, INPUT_PULLUP);
-}
-
-// ボタンが押されて離されたら true
-bool pressed() {
-  if (digitalRead(BTN) == LOW) {
-    delay(20);
-    while (digitalRead(BTN) == LOW) {}
-    delay(20);
-    return true;
-  }
-  return false;
-}
-
-void beep(int ms) {
-  tone(BUZ, 2000);
-  delay(ms);
-  noTone(BUZ);
-}
-
-// チャルメラ（ソラシーラソ　ソラシラソラー）
-const int SO = 784, LA = 880, SI = 988;  // 音の高さ(Hz)
-const int MELODY[][2] = {   // {音, 長さ}  音0は休み
-  {SO, 1}, {LA, 1}, {SI, 3}, {LA, 1}, {SO, 2}, {0, 2},
-  {SO, 1}, {LA, 1}, {SI, 1}, {LA, 1}, {SO, 1}, {LA, 5}, {0, 4}
-};
-const int UNIT = 180;  // 長さ1の時間(ms)
-
-// チャルメラを1回鳴らす。途中でボタンが押されたら止めて true
-bool playCharumera() {
-  for (auto &n : MELODY) {
-    if (n[0]) {
-      tone(BUZ, n[0]);
-      digitalWrite(LED, HIGH);
-    }
-    unsigned long t = millis();
-    while (millis() - t < (unsigned long)n[1] * UNIT) {
-      if (digitalRead(BTN) == LOW) {
-        noTone(BUZ);
-        digitalWrite(LED, LOW);
-        return true;
-      }
-    }
-    noTone(BUZ);
-    digitalWrite(LED, LOW);
-    delay(20);  // 音の切れ目
-  }
-  return false;
-}
-
-void loop() {
-  if (!pressed()) return;
-
-  // スタート
-  beep(100);
-  unsigned long start = millis();
-
-  // カウント中
-  while (millis() - start < TIME_MS) {
-    digitalWrite(LED, (millis() - start) % 1000 < 100);  // 1秒ごとに点滅
-    if (pressed()) {  // キャンセル
-      digitalWrite(LED, LOW);
-      beep(50); delay(100); beep(50);
-      return;
-    }
-  }
-
-  // 3分たった：ボタンを押すまでチャルメラをくり返す
-  while (!playCharumera()) {}
-  while (digitalRead(BTN) == LOW) {}  // ボタンが離れるまで待つ
-  delay(20);
-}
-```
-
-### メモ
-
-- 時間を変えるときは `TIME_MS` の `3UL` を変えます（5分なら `5UL`）。
-- メロディの速さは `UNIT` で変えられます（小さくすると速くなります）。
-- 内部クロックなので、数秒ずれることがあります。ラーメンには十分です。
+[ramen_timer.asm](ramen_timer.asm ':include :type=code')
