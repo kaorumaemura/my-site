@@ -14,7 +14,7 @@ ATtiny85 で作る、カップラーメン用の3分タイマーです。
 1. ボタンを押す → 「ピッ」と鳴ってスタート
 2. カウント中は LED が1秒ごとに点滅
 3. 途中でボタンを押すと「ピピッ」と鳴ってキャンセル
-4. 3分たつと「ピピピッ」と鳴り続け、LED も光る
+4. 3分たつと**チャルメラ**（ソラシーラソ　ソラシラソラー）が鳴り続け、音に合わせて LED も光る
 5. ボタンを押すと止まる
 
 ### 部品
@@ -81,6 +81,36 @@ void beep(int ms) {
   noTone(BUZ);
 }
 
+// チャルメラ（ソラシーラソ　ソラシラソラー）
+const int SO = 784, LA = 880, SI = 988;  // 音の高さ(Hz)
+const int MELODY[][2] = {   // {音, 長さ}  音0は休み
+  {SO, 1}, {LA, 1}, {SI, 3}, {LA, 1}, {SO, 2}, {0, 2},
+  {SO, 1}, {LA, 1}, {SI, 1}, {LA, 1}, {SO, 1}, {LA, 5}, {0, 4}
+};
+const int UNIT = 180;  // 長さ1の時間(ms)
+
+// チャルメラを1回鳴らす。途中でボタンが押されたら止めて true
+bool playCharumera() {
+  for (auto &n : MELODY) {
+    if (n[0]) {
+      tone(BUZ, n[0]);
+      digitalWrite(LED, HIGH);
+    }
+    unsigned long t = millis();
+    while (millis() - t < (unsigned long)n[1] * UNIT) {
+      if (digitalRead(BTN) == LOW) {
+        noTone(BUZ);
+        digitalWrite(LED, LOW);
+        return true;
+      }
+    }
+    noTone(BUZ);
+    digitalWrite(LED, LOW);
+    delay(20);  // 音の切れ目
+  }
+  return false;
+}
+
 void loop() {
   if (!pressed()) return;
 
@@ -98,24 +128,15 @@ void loop() {
     }
   }
 
-  // 3分たった：ボタンを押すまで「ピピピッ」
-  unsigned long t0 = millis();
-  bool last = false;
-  while (!pressed()) {
-    unsigned long p = (millis() - t0) % 1000;
-    bool on = (p < 600) && (p % 200 < 100);
-    if (on != last) {
-      if (on) tone(BUZ, 2000); else noTone(BUZ);
-      digitalWrite(LED, on);
-      last = on;
-    }
-  }
-  noTone(BUZ);
-  digitalWrite(LED, LOW);
+  // 3分たった：ボタンを押すまでチャルメラをくり返す
+  while (!playCharumera()) {}
+  while (digitalRead(BTN) == LOW) {}  // ボタンが離れるまで待つ
+  delay(20);
 }
 ```
 
 ### メモ
 
 - 時間を変えるときは `TIME_MS` の `3UL` を変えます（5分なら `5UL`）。
+- メロディの速さは `UNIT` で変えられます（小さくすると速くなります）。
 - 内部クロックなので、数秒ずれることがあります。ラーメンには十分です。
