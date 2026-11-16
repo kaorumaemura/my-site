@@ -65,5 +65,26 @@ ATtiny85 で作る、3分・4分・5分を切り替えられるラーメンタ�
 
 - クロック：内蔵8MHz ÷ 8 = 1MHz（工場出荷時のヒューズのまま）
 - ソースファイル：[ramen_timer.asm](ramen_timer.asm ':ignore')
+- Makefile：[Makefile](Makefile ':ignore')
+
+### ビルドと書き込み
+
+アセンブラは **avra**、書き込みは **avrdude** を使います。
+書き込み器は Arduino を ISP にしたもの（stk500v1、`/dev/ttyUSB0`、19200bps）です。
+
+```sh
+make          # アセンブル → ramen_timer.hex
+make write    # ATtiny85 に書き込み
+make edit     # ソースを編集
+make clean    # できたファイルを消す
+```
+
+`.asm` ファイルは自動で見つけるので、Makefile にファイル名を書く必要はありません。
+ポートが違うときは `make write PORT=/dev/ttyACM0` のように指定します。
+
+アセンブルすると 348ワード（696バイト）で、ATtiny85 の 8KB に余裕で入ります。
+
+### ソース
+
 
 [ramen_timer.asm](ramen_timer.asm ':include :type=code')
