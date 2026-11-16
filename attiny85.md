@@ -86,5 +86,10 @@ make clean    # できたファイルを消す
 
 ### ソース
 
+#### Makefile
+
+[Makefile](Makefile ':include :type=code')
+
+#### ramen_timer.asm
 
 [ramen_timer.asm](ramen_timer.asm ':include :type=code')
