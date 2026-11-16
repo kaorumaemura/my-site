@@ -1,6 +1,6 @@
 - [ホーム](/)
 - [電子工作](electronics.md)
 - Projects
-  - [ATtiny85](attiny85.md)
+  - [ATtiny85 ラーメンタイマー](attiny85.md)
   - [Arduino](arduino.md)
   - [Raspberry Pi](raspberrypi.md)
