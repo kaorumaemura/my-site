@@ -14,11 +14,17 @@
     window.$docsify = {
       name: '私のホームページ',
       loadSidebar: true,
-      subMaxLevel: 2
+      subMaxLevel: 2,
+      copyCode: {
+        buttonText: 'コピー',
+        successText: 'コピーしました',
+        errorText: 'コピーできませんでした'
+      }
     }
   </script>
 
   <script src="https://cdn.jsdelivr.net/npm/docsify@4"></script>
+  <script src="https://cdn.jsdelivr.net/npm/docsify-copy-code@3/dist/docsify-copy-code.min.js"></script>
 
 </body>
 </html>
